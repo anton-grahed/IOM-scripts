@@ -1,0 +1,13 @@
+Hi Carlos!
+
+This is our shared git repository. 
+
+In order to get my changes to your local folder: either do
+1) git pull origin main
+or
+2.1) git fetch origin main
+then you can review changes i have made before doing
+2.2) git merge origin main 
+
+in order to commit your own changes to the main branch you will do:
+
