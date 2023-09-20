@@ -10,4 +10,8 @@ then you can review changes i have made before doing
 2.2) git merge origin main 
 
 in order to commit your own changes to the main branch you will do:
+(3.1) git add <your file>
+(if you want to add all files: write git add .)
+(3.2) git commit -m "your message here - describe what you did"
+(3.3) git push origin main
 
