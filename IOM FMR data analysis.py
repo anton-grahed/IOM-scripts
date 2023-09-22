@@ -6,16 +6,37 @@ Created on Wed Sep 20 15:30:30 2023
 """
 
 import pandas as pd
+import geopandas as gpd
+import matplotlib.pyplot as plt
+import unidecode
+
 
 data = pd.read_excel('FMR_2022_clean_all_final.xlsx')
 data["_16_DISAG_BY_SEX_and_AGE/_16_3_total_pers"] = pd.to_numeric(data["_16_DISAG_BY_SEX_and_AGE/_16_3_total_pers"], errors='coerce').fillna(0)
 
-#This checks how many are within country or to different countries
 
+#This checks how many are within country or to different countries
 data['Migration_Type'] = ['intra-country %' if depart == dest else 'inter-country %' 
                           for depart, dest in zip(data['Departed_country'], data['Destination_country'])]
 intra_inter_country_percentages = data['Migration_Type'].value_counts(normalize=True) * 100
 
+#This checks outflows and inflows for each admin1
+outflows_admin1 = data.groupby('Departed_admin1').apply(lambda group: (group["_16_DISAG_BY_SEX_and_AGE/_16_3_total_pers"]).sum())
+inflows_admin1 = data.groupby('Destination_admin1').apply(lambda group: (group["_16_DISAG_BY_SEX_and_AGE/_16_3_total_pers"]).sum())
+flows_admin1 = pd.DataFrame({
+    'Outflows': outflows_admin1,
+    'Inflows': inflows_admin1
+}).reset_index()
+flows_admin1.fillna(0, inplace=True)
+
+#The same but admin2
+outflows_admin2 = data.groupby('Departed_admin2').apply(lambda group: (group["_16_DISAG_BY_SEX_and_AGE/_16_3_total_pers"]).sum())
+inflows_admin2 = data.groupby('Destination_admin2').apply(lambda group: (group["_16_DISAG_BY_SEX_and_AGE/_16_3_total_pers"]).sum())
+flows_admin2 = pd.DataFrame({
+    'Outflows': outflows_admin2,
+    'Inflows': inflows_admin2
+}).reset_index()
+flows_admin1.fillna(0, inplace=True)
 #This produces routes between countries by frequency
 country_to_country_migrations = data.groupby(['Departed_country', 'Destination_country'])["_16_DISAG_BY_SEX_and_AGE/_16_3_total_pers"].sum().reset_index()
 common_routes_country = country_to_country_migrations.sort_values(by="_16_DISAG_BY_SEX_and_AGE/_16_3_total_pers", ascending=False).reset_index(drop=True)
@@ -145,3 +166,30 @@ gender_sums_dest_admin1['Total_Males'] = gender_sums_dest_admin1['_16_DISAG_BY_S
 gender_sums_dest_admin1['Proportion_Females'] = gender_sums_dest_admin1['Total_Females'] / (gender_sums_dest_admin1['Total_Females'] + gender_sums_dest_admin1['Total_Males'])
 gender_sums_dest_admin1['Proportion_Males'] = gender_sums_dest_admin1['Total_Males'] / (gender_sums_dest_admin1['Total_Females'] + gender_sums_dest_admin1['Total_Males'])
 gender_proportions_destined_admin1 = gender_sums_dest_admin1[['Destination_admin1', 'Total_Females', 'Total_Males', 'Proportion_Females', 'Proportion_Males']]
+
+#Heatmat plotting
+
+#Function to normalise names
+def normalize_name(name):
+    return unidecode.unidecode(name).replace('-', '').replace("'", '').replace(' ', '').lower()
+
+#Example of plotting code of heatmap, in this case, outflows by admin1 region in Senegal
+
+fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+#Change senegal_ad1_gdf and gadm41_DZA_1.json
+senegal_ad1_gdf = gpd.read_file('gadm41_SEN_1.json')
+
+#normalising names
+flows_admin1['index'] = flows_admin1['index'].apply(normalize_name)
+senegal_ad1_gdf['NAME_1'] = senegal_ad1_gdf['NAME_1'].apply(normalize_name)
+
+#Change the same, plus change NAME_1 by NAME_2 if working with admin2, change flows_admin1 by variable of interest, change 'index' by column header of region name in dataframe (e.g "Destination_admin2")
+merged_geodata = senegal_ad1_gdf.set_index('NAME_1').join(flows_admin1.set_index('index'))
+#Change 'Outflows' by column header of variable of interest to plot , and label
+merged_geodata.plot(column='Outflows', ax=ax, legend=True, cmap='OrRd', 
+            edgecolor='black', linewidth=0.5, legend_kwds={'label': "Senegal Outflows by Admin1"})
+#Change algeria_ad1_gdf
+senegal_ad1_gdf.boundary.plot(ax=ax, color='black', linewidth=1.5)
+#Change title
+ax.set_title('Outflows by Admin1 for Senegal')
+plt.show()
